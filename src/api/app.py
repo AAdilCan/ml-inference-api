@@ -5,11 +5,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from src.api.limiter import limiter
 from src.api.middleware.auth import ApiKeyMiddleware
+from src.api.middleware.request_id import RequestIdMiddleware
 from src.api.routes import health, predict
 from src.core.config import settings
 from src.core.logging import configure_logging
@@ -36,11 +38,18 @@ def create_app() -> FastAPI:
 
     # middleware — added last-in, first-executed
     app.add_middleware(ApiKeyMiddleware)
+    app.add_middleware(RequestIdMiddleware)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
     # routes
     app.include_router(health.router)
     app.include_router(predict.router, prefix="/api/v1")
+
+    # Prometheus — instrument after routes are registered, expose /metrics
+    Instrumentator(
+        should_group_status_codes=False,
+        excluded_handlers=["/metrics", "/health"],
+    ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
     return app
 
