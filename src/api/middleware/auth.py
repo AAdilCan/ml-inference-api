@@ -7,10 +7,9 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from src.core.config import settings
 
@@ -28,6 +27,6 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
         if not key or key not in valid_keys:
             log.warning("unauthorized request from %s", request.client)
-            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+            return JSONResponse({"detail": "Invalid or missing API key"}, status_code=401)
 
         return await call_next(request)
